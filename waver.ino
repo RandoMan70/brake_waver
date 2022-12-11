@@ -1,18 +1,21 @@
 #include <microLED.h>
 
-const int STRIP_PIN = 2;
+const int STRIP_PIN = 3;
+const int BRAKE_PIN = 5;
 
 const int NUMLEDS = 144;
 microLED< NUMLEDS, STRIP_PIN, MLED_NO_CLOCK, LED_WS2812, ORDER_GRB, CLI_LOW> strip;
 
 uint8_t internal[NUMLEDS];
 void setup() {
+  pinMode(BRAKE_PIN, INPUT);
   Serial.begin(115200);
   strip.setBrightness(255);
   for (int idx = 0; idx < NUMLEDS; idx++) {
     internal[idx] = 0;
   }
 }
+
 
 
 class CWaver {
@@ -79,24 +82,38 @@ class CWaver {
     int m_shift_downcount;
 };
 
-CWaver waver1(internal, NUMLEDS, -16, 80, -16, 1, 10);
-CWaver waver2(internal, NUMLEDS, -16, 80, 80, -1, 10);
+CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
+CWaver waver2(internal, NUMLEDS, -16, 144+16, 144+16, -1, 10);
+
+class FXOne {
+public:
+  FXOne(
+      uint8_t *screen, 
+      int size
+    ) {
+    
+  }
+  void tick() {
+    
+  }
+  void reset();
+  bool done();  
+private:
+  uint8_t *m_screen;
+  int m_size;
+};
 
 void loop() {
   waver1.tick();
   waver2.tick();
+  bool brake = digitalRead(BRAKE_PIN);
 
-  bool fake_brake = false;
-  if (millis() % 7000 < 2000) {
-    fake_brake = true;
-  }
   for (int idx = 0; idx < NUMLEDS; idx++ ) {
-    if (fake_brake) {
+    if (brake) {
       strip.leds[idx] = mRGB(255, 0, 0);
     } else {
       strip.leds[idx] = mRGB(internal[idx], 0, 0);
     }
   }
   strip.show();
-
 }
