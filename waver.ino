@@ -16,9 +16,14 @@ void setup() {
   }
 }
 
+class FX {
+public:
+  virtual void tick();
+  virtual bool done();
+  virtual ~FX(){};  
+};
 
-
-class CWaver {
+class CWaver: public FX {
   public:
     CWaver(
       uint8_t *screen, 
@@ -37,7 +42,7 @@ class CWaver {
       m_direction(direction), 
       m_shiftdelay(shiftdelay) 
     {}
-    void tick() {
+    virtual void tick() {
       if (--m_shift_downcount <= 0) {
         m_shift_downcount = m_shiftdelay;
         m_position += m_direction;
@@ -71,6 +76,9 @@ class CWaver {
         m_screen[idx] = newval;
       }
     }
+    virtual bool done(){
+      return false;
+    }
   private:
     uint8_t *m_screen;
     int m_size;
@@ -82,30 +90,71 @@ class CWaver {
     int m_shift_downcount;
 };
 
-CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
-CWaver waver2(internal, NUMLEDS, -16, 144+16, 144+16, -1, 10);
-
-class FXOne {
+class CWider: public FX {
 public:
-  FXOne(
+  CWider(
       uint8_t *screen, 
-      int size
-    ) {
-    
+      int size,
+      int brightness,
+      int shiftdelay
+    ): m_screen(screen),
+      m_size(size),
+      m_brightness(brightness) ,
+      m_pos(0),
+      m_middle(size/2),
+      m_shiftdelay(shiftdelay),
+      m_shift_downcount(0)
+    {}
+  virtual void tick() {
+    if (--m_shift_downcount > 0) {
+      return;
+    }
+    m_shift_downcount = m_shiftdelay;
+    set(m_middle + m_pos, m_brightness);
+    set(m_middle - m_pos, m_brightness);
+    set(m_middle + m_pos + 1, m_brightness / 2);
+    set(m_middle - m_pos - 1, m_brightness / 2);
+    m_pos ++;
   }
-  void tick() {
-    
+  void reset() {
+    m_pos = 0;
   }
-  void reset();
-  bool done();  
+  virtual bool done() {
+    return m_pos > (m_size / 2);
+  }
 private:
+  void set(int idx, int val) {
+    if (idx < 0 || idx >= m_size) {
+      return;
+    }
+    if (m_screen[idx] < val) {
+      m_screen[idx] = val;
+    }
+  }
   uint8_t *m_screen;
   int m_size;
+  int m_brightness;
+  int m_pos;
+  int m_middle;
+  int m_shiftdelay;
+  int m_shift_downcount;
 };
 
+CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
+CWaver waver2(internal, NUMLEDS, -16, 144+16, 144+16, -1, 10);
+CWider wider1(internal, NUMLEDS, 64, 10);
+CWider wider2(internal, NUMLEDS, 192, 10);
+
 void loop() {
-  waver1.tick();
-  waver2.tick();
+  if (!wider1.done()) {
+    wider1.tick();
+  } else if (!wider2.done()){
+    wider2.tick();
+  } else {
+    waver1.tick();
+    waver2.tick();
+  }
+
   bool brake = digitalRead(BRAKE_PIN);
 
   for (int idx = 0; idx < NUMLEDS; idx++ ) {
