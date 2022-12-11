@@ -40,7 +40,7 @@ class CWaver: public FX {
       m_window_end(window_end),
       m_position(position), 
       m_direction(direction), 
-      m_shiftdelay(shiftdelay) 
+      m_shiftdelay(shiftdelay)
     {}
     virtual void tick() {
       if (--m_shift_downcount <= 0) {
@@ -106,15 +106,23 @@ public:
       m_shift_downcount(0)
     {}
   virtual void tick() {
-    if (--m_shift_downcount > 0) {
+    if (--m_shift_downcount < 0) {
+      m_pos ++;
+      m_shift_downcount = m_shiftdelay - 1;
+    }
+
+    bump(m_middle + m_pos);
+    bump(m_middle - m_pos);
+  }
+  void bump(int idx) {
+    if (m_shift_downcount == 0) {
+      set(idx, m_brightness);
       return;
     }
-    m_shift_downcount = m_shiftdelay;
-    set(m_middle + m_pos, m_brightness);
-    set(m_middle - m_pos, m_brightness);
-    set(m_middle + m_pos + 1, m_brightness / 2);
-    set(m_middle - m_pos - 1, m_brightness / 2);
-    m_pos ++;
+    int current = get(idx);
+    int delta = m_brightness - current;
+    int step = delta / (m_shift_downcount + 1);
+    set(idx, current + step);
   }
   void reset() {
     m_pos = 0;
@@ -131,6 +139,12 @@ private:
       m_screen[idx] = val;
     }
   }
+  int get(int idx) {
+    if (idx < 0 || idx >= m_size) {
+      return 0;
+    }
+    return m_screen[idx];
+  }
   uint8_t *m_screen;
   int m_size;
   int m_brightness;
@@ -138,6 +152,7 @@ private:
   int m_middle;
   int m_shiftdelay;
   int m_shift_downcount;
+  int m_brightness_at_start;
 };
 
 CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
