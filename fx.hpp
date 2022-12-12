@@ -21,7 +21,7 @@ public:
   void fx_chain_tick() {
     tick();
     if (m_fx_next != NULL) {
-      m_fx_next -> tick();
+      m_fx_next -> fx_chain_tick();
     }
   }
 
