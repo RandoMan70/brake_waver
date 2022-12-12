@@ -46,11 +46,8 @@ void setup() {
 }
 
 void loop() {
-  fx_chain.tick();
-
-  if (brakes.IsBraking()) {
-    brakes.Render();
-  } else {
+  if (!brakes.tick()) {
+    fx_chain.tick();
     canvas.Render();
   }
 }

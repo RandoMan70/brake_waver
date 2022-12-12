@@ -10,17 +10,26 @@ public:
     pinMode(m_brake_pin, INPUT);
   };
 
-  bool IsBraking() {
+  bool tick() {
+    if (is_braking()) {
+      render();
+      return true;
+    }
+
+    return false;
+  }
+private:
+  bool is_braking() {
     return digitalRead(m_brake_pin);
   }
 
-  void Render() {
+  void render() {
     for(int idx = 0; idx < m_strip->Size(); idx++) {
       m_strip->Set(idx, 255);
     }
     m_strip->Show();
   }
-private:
+
   CStrip *m_strip;
   int m_brake_pin;
   Brake *m_instance;
