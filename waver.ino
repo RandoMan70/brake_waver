@@ -153,6 +153,7 @@ public:
       bool cyclic,
       int front_width,
       int front_fade_scaling_factor,
+      int min_brightness,
       int max_brightness
     ):
     m_canvas(canvas),
@@ -163,6 +164,7 @@ public:
     m_front_width(front_width),
     m_front_fade_scaling_factor(front_fade_scaling_factor),
     m_direction(m_end_position > m_start_position ? 1 : m_start_position == m_end_position ? 0 : -1),
+    m_min_brightness(min_brightness),
     m_max_brightness(max_brightness)
   {
     reset();
@@ -196,6 +198,10 @@ public:
     m_max_brightness = brightness;
   }
 
+  void set_min_brightness(int brightness) {
+    m_min_brightness = brightness;
+  }
+
   virtual bool done() {
     if (m_cyclic) {
       return false;
@@ -224,14 +230,14 @@ private:
   }
 
   void tick_set(int idx, int value) {
-    if (value > m_max_brightness) {
-      value = m_max_brightness;
-    }
-    m_canvas->Set(idx, value);
+      if (m_front_fade_scaling_factor > 0 && value > m_max_brightness) {
+        value = m_max_brightness;
+      }
+      if (m_front_fade_scaling_factor < 0 && value < m_min_brightness) {
+        value = m_min_brightness;
+      }
 
-    char arr[128];
-    sprintf(arr, "[%d] = %d", idx, value);
-    Serial.println(arr);
+    m_canvas->Set(idx, value);
   }
 
 // Configurational variables
@@ -242,6 +248,7 @@ private:
   bool m_cyclic;
   int m_front_width;
   int m_front_fade_scaling_factor;
+  int m_min_brightness;
   int m_max_brightness;
 
 // Automatic configuration variables
@@ -258,12 +265,12 @@ CFront *front1, *front2, *front3, *front4;
 void setup() {
   pinMode(BRAKE_PIN, INPUT);
   Serial.begin(115200);
-  STRIP.setBrightness(255);
+  STRIP.setBrightness(128);
   canvas.Fill(0);
 
   int middle = canvas.Size() / 2 - 1;
-  front1 = new CFront(&canvas, middle + 1, canvas.Size() - 1, 7, false, 5, 2, 96);
-  front2 = new CFront(&canvas, middle, 0, 7, false, 5, 2, 96);
+  front1 = new CFront(&canvas, middle + 1, canvas.Size() - 1, 7, false, 5, 2, 0, 96);
+  front2 = new CFront(&canvas, middle, 0, 7, false, 5, 2, 0, 96);
 
 //  for (int cnt = 0; cnt < 10; cnt++) {
 //    front1->tick();
