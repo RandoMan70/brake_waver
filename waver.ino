@@ -152,7 +152,8 @@ public:
       int step_ticks,
       bool cyclic,
       int front_width,
-      int front_fade_scaling_factor
+      int front_fade_scaling_factor,
+      int max_brightness
     ):
     m_canvas(canvas),
     m_start_position(start_position),
@@ -161,14 +162,19 @@ public:
     m_cyclic(cyclic),
     m_front_width(front_width),
     m_front_fade_scaling_factor(front_fade_scaling_factor),
-    m_direction(m_end_position > m_start_position ? 1 : m_start_position == m_end_position ? 0 : -1)
+    m_direction(m_end_position > m_start_position ? 1 : m_start_position == m_end_position ? 0 : -1),
+    m_max_brightness(max_brightness)
   {
-    Serial.println(start_position);
-    Serial.println(end_position);
-    Serial.println(m_direction);
+    reset();
   }
 
   virtual void tick() {
+    if (m_direction > 0) {
+      tick_up();
+    } else {
+      tick_down();
+    }
+
     if (--m_step_tick_left < 0) {
       if (m_position == m_end_position) {
         if (m_cyclic) {
@@ -179,41 +185,15 @@ public:
       }
       m_step_tick_left = m_step_ticks - 1;
     }
-
-    if (m_direction > 0) {
-      tick_up();
-    } else {
-      tick_down();
-    }
-  }
-
-  void tick_up() {
-    for (int idx = 0; idx < m_front_width; idx++) {
-      int shift = (m_front_width - idx) * 10;
-      int value = m_canvas->Get(m_position + idx);
-      value += shift;
-      tick_set(m_position + idx, value);
-    }
-  }
-
-  void tick_down() {
-    for (int idx = 0; idx < m_front_width; idx++) {
-      int shift = idx * m_front_fade_scaling_factor;
-      int value = m_canvas->Get(m_position - idx);
-      value += shift;
-      tick_set(m_position - idx, value);
-    }
-  }
-
-  void tick_set(int idx, int value) {
-    if (value > 255) {
-      value = 255;
-    }
-    m_canvas->Set(idx, value);
   }
 
   void reset() {
     m_position = m_start_position;
+    m_step_tick_left = m_step_ticks;
+  }
+
+  void set_max_brightness(int brightness) {
+    m_max_brightness = brightness;
   }
 
   virtual bool done() {
@@ -223,7 +203,37 @@ public:
       return m_position == m_end_position;
     }
   }
+
 private:
+  void tick_up() {
+    for (int idx = 0; idx < m_front_width; idx++) {
+      int shift = (m_front_width - idx) * m_front_fade_scaling_factor;
+      int value = m_canvas->Get(m_position + idx);
+      value += shift;
+      tick_set(m_position + idx, value);
+    }
+  }
+
+  void tick_down() {
+    for (int idx = 0; idx < m_front_width; idx++) {
+      int shift = (m_front_width - idx) * m_front_fade_scaling_factor;
+      int value = m_canvas->Get(m_position - idx);
+      value += shift;
+      tick_set(m_position - idx, value);
+    }
+  }
+
+  void tick_set(int idx, int value) {
+    if (value > m_max_brightness) {
+      value = m_max_brightness;
+    }
+    m_canvas->Set(idx, value);
+
+    char arr[128];
+    sprintf(arr, "[%d] = %d", idx, value);
+    Serial.println(arr);
+  }
+
 // Configurational variables
   Canvas *m_canvas;
   int m_start_position;
@@ -232,6 +242,7 @@ private:
   bool m_cyclic;
   int m_front_width;
   int m_front_fade_scaling_factor;
+  int m_max_brightness;
 
 // Automatic configuration variables
   int m_direction;
@@ -243,16 +254,22 @@ private:
 
 uint8_t storage[NUMLEDS];
 Canvas  canvas(storage, NUMLEDS, &strip);
+CFront *front1, *front2, *front3, *front4;
 void setup() {
   pinMode(BRAKE_PIN, INPUT);
   Serial.begin(115200);
   STRIP.setBrightness(255);
   canvas.Fill(0);
-}
 
-int middle = canvas.Size() / 2 - 1;
-CFront front1(&canvas, middle, canvas.Size() - 1, 10, false, 5, 10);
-CFront front2(&canvas, middle, 0, 10, false, 5, 10);
+  int middle = canvas.Size() / 2 - 1;
+  front1 = new CFront(&canvas, middle + 1, canvas.Size() - 1, 7, false, 5, 2, 96);
+  front2 = new CFront(&canvas, middle, 0, 7, false, 5, 2, 96);
+
+//  for (int cnt = 0; cnt < 10; cnt++) {
+//    front1->tick();
+//    front2->tick();
+//  }
+}
 
 // CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
 // CWaver waver2(internal, NUMLEDS, -16, 144+16, 144+16, -1, 10);
@@ -274,23 +291,17 @@ private:
 
 BrakePattern brakes(&strip);
 void loop() {
-
-  if (front1.done() && front2.done()) {
-    canvas.Fill(0);
-  } else {
-    front1.tick();
-    front2.tick();
+  if (front1->done() && front2->done()) {
+    front1->set_max_brightness(192);
+    front2->set_max_brightness(192);
+    front1->reset();
+    front2->reset();
+    //canvas.Fill(0);
   }
-  
-//  if (!wider1.done()) {
-//    wider1.tick();
-//  } else if (!wider2.done()){
-//    wider2.tick();
-//  } else {
-//    waver1.tick();
-//    waver2.tick();
-//  }
 
+  front1->tick();
+  front2->tick();
+  
   bool brake = digitalRead(BRAKE_PIN);
   if (brake) {
     brakes.Render();
