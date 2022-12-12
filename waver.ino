@@ -7,13 +7,17 @@ const int NUMLEDS = 144;
 microLED< NUMLEDS, STRIP_PIN, MLED_NO_CLOCK, LED_WS2812, ORDER_GRB, CLI_LOW> STRIP;
 class RedStripInterface{
 public:
-  Set(uint8_t value) {
-    STRIP.leds[idx] = mRGB(value, 0, 0);
+  void Set(int index, uint8_t value) {
+    STRIP.leds[index] = mRGB(value, 0, 0);
   }
   int Size() {
     return NUMLEDS;
   }
-}
+  void Show() {
+    STRIP.show();
+  }
+};
+
 RedStripInterface strip;
 
 class Canvas {
@@ -26,7 +30,7 @@ public:
 
   void Fill(int value) {
     value = correct_value(value);
-    for (int idx = 0; idx < m_size) {
+    for (int idx = 0; idx < m_size; idx++) {
       m_storage[idx] = value;
     }
   }
@@ -36,25 +40,25 @@ public:
       return;
     }
 
-    m_canvas[idx] = correct_value(value);
+    m_storage[index] = correct_value(value);
   }
 
   int Get(int index) {
     if (index < 0 || index >= m_size) {
       return 0;
     }
-    return m_storage[idx];
+    return m_storage[index];
   }
 
   int Size() {
     return m_size;
   }
 
-  Render() {
-    for(idx = 0; idx < m_strip.Size(); idx++) {
-      m_strip.Set(m_storage[idx]);
+  void Render() {
+    for(int idx = 0; idx < m_strip->Size(); idx++) {
+      m_strip->Set(idx, m_storage[idx]);
     }
-    m_strip.show();
+    m_strip->Show();
   }
 private:
   uint8_t correct_value(int value) {
@@ -70,11 +74,11 @@ private:
   uint8_t *m_storage;
   int m_size;
   RedStripInterface *m_strip;
-}
+};
 
 class FX {
 public:
-  FX() m_fx_next(NULL){};
+  FX(): m_fx_next(NULL){};
   virtual void tick();
   virtual bool done();
   virtual ~FX(){};
@@ -84,7 +88,7 @@ public:
   }
 
   bool fx_chain_done() {
-    return self.done() || (m_fx_next != NULL ? m_fx_next->done() : false);
+    return this->done() || (m_fx_next != NULL ? m_fx_next->done() : false);
   }
 protected:
   FX *fx_next() {
@@ -101,30 +105,30 @@ public:
     m_target(target),
     m_step(step),
     m_window_lowaddr(0),
-    m_window_highaddr(canvas.Size() - 1)
+    m_window_highaddr(canvas->Size() - 1)
   {}
   virtual void tick() {
     m_had_changes = false;
-    for (int idx = m_window_lowaddr, idx <= m_window_highaddr, idx++) {
-      int value = m_canvas.Get(idx);
+    for (int idx = m_window_lowaddr; idx <= m_window_highaddr; idx++) {
+      int value = m_canvas->Get(idx);
       if (value == m_target) {
-        continue
+        continue;
       }
 
       m_had_changes = true;
-      if (value < target) {
+      if (value < m_target) {
         value += m_step;
-        if (value > target) {
-          value = target;
+        if (value > m_target) {
+          value = m_target;
         }
       } else {
         value -= m_step;
-        if (value < target) {
-          value = target;
+        if (value < m_target) {
+          value = m_target;
         }
       }
 
-      m_canvas.Set(idx, value);
+      m_canvas->Set(idx, value);
     }
   }
   virtual bool done() {
@@ -137,7 +141,7 @@ private:
   int m_window_lowaddr;
   int m_window_highaddr;
   bool m_had_changes;
-}
+};
 
 class CFront: public FX {
 public:
@@ -158,33 +162,35 @@ public:
     m_front_width(front_width),
     m_front_fade_scaling_factor(front_fade_scaling_factor),
     m_direction(m_end_position > m_start_position ? 1 : m_start_position == m_end_position ? 0 : -1)
-  {}
+  {
+    Serial.println(start_position);
+    Serial.println(end_position);
+    Serial.println(m_direction);
+  }
 
   virtual void tick() {
-    if (--m_shift_downcount < 0) {
-      m_position ++;
-      m_step_tick_left = step_ticks - 1;
+    if (--m_step_tick_left < 0) {
+      if (m_position == m_end_position) {
+        if (m_cyclic) {
+          m_position = m_start_position;
+        }
+      } else {
+        m_position += m_direction;
+      }
+      m_step_tick_left = m_step_ticks - 1;
     }
 
-    for (int idx = 0; idx < canvas.Size(); idx++) {
-      int distance = abs(m_position - idx);
-      if (distance > ) {
-        continue;
-      }
-      int shift = (5-distance) * 10;
-      int newval = m_screen[idx];
-      newval += shift;
-      if (newval > 255) {
-        newval = 255;
-      }
-      m_screen[idx] = newval;
+    if (m_direction > 0) {
+      tick_up();
+    } else {
+      tick_down();
     }
   }
 
   void tick_up() {
     for (int idx = 0; idx < m_front_width; idx++) {
       int shift = (m_front_width - idx) * 10;
-      int value = canvas.Get(m_position + idx);
+      int value = m_canvas->Get(m_position + idx);
       value += shift;
       tick_set(m_position + idx, value);
     }
@@ -192,8 +198,8 @@ public:
 
   void tick_down() {
     for (int idx = 0; idx < m_front_width; idx++) {
-      int shift = idx * 10;
-      int value = canvas.Get(m_position - idx);
+      int shift = idx * m_front_fade_scaling_factor;
+      int value = m_canvas->Get(m_position - idx);
       value += shift;
       tick_set(m_position - idx, value);
     }
@@ -203,7 +209,7 @@ public:
     if (value > 255) {
       value = 255;
     }
-    canvas.Set(idx, value);
+    m_canvas->Set(idx, value);
   }
 
   void reset() {
@@ -211,7 +217,7 @@ public:
   }
 
   virtual bool done() {
-    if (cyclic) {
+    if (m_cyclic) {
       return false;
     } else {
       return m_position == m_end_position;
@@ -236,13 +242,18 @@ private:
 };
 
 uint8_t storage[NUMLEDS];
-Canvas  canvas(&storage, NUMLEDS, &strip);
+Canvas  canvas(storage, NUMLEDS, &strip);
 void setup() {
   pinMode(BRAKE_PIN, INPUT);
   Serial.begin(115200);
   STRIP.setBrightness(255);
   canvas.Fill(0);
 }
+
+int middle = canvas.Size() / 2 - 1;
+CFront front1(&canvas, middle, canvas.Size() - 1, 10, false, 5, 10);
+CFront front2(&canvas, middle, 0, 10, false, 5, 10);
+
 // CWaver waver1(internal, NUMLEDS, -16, 144+16, -16, 1, 10);
 // CWaver waver2(internal, NUMLEDS, -16, 144+16, 144+16, -1, 10);
 // CWider wider1(internal, NUMLEDS, 64, 10);
@@ -251,26 +262,34 @@ void setup() {
 class BrakePattern {
 public:
   BrakePattern(RedStripInterface *strip): m_strip(strip) {};
-  Render() {
-    for(idx = 0; idx < m_strip.Size(); idx++) {
-      m_strip.Set(255);
+  void Render() {
+    for(int idx = 0; idx < m_strip->Size(); idx++) {
+      m_strip->Set(idx, 255);
     }
-    m_strip.show();
+    m_strip->Show();
   }
 private:
   RedStripInterface *m_strip;
-}
+};
 
 BrakePattern brakes(&strip);
 void loop() {
-  if (!wider1.done()) {
-    wider1.tick();
-  } else if (!wider2.done()){
-    wider2.tick();
+
+  if (front1.done() && front2.done()) {
+    canvas.Fill(0);
   } else {
-    waver1.tick();
-    waver2.tick();
+    front1.tick();
+    front2.tick();
   }
+  
+//  if (!wider1.done()) {
+//    wider1.tick();
+//  } else if (!wider2.done()){
+//    wider2.tick();
+//  } else {
+//    waver1.tick();
+//    waver2.tick();
+//  }
 
   bool brake = digitalRead(BRAKE_PIN);
   if (brake) {
