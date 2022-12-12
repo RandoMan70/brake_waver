@@ -18,6 +18,13 @@ public:
     }
   }
 
+  void fx_chain_tick() {
+    tick();
+    if (m_fx_next != NULL) {
+      m_fx_next -> tick();
+    }
+  }
+
   bool fx_chain_reset() {
     this->reset();
     if (m_fx_next != NULL) {
