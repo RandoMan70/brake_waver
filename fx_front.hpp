@@ -32,11 +32,7 @@ public:
   }
 
   virtual void tick() {
-    if (m_direction > 0) {
-      tick_up();
-    } else {
-      tick_down();
-    }
+    tick_updown();
 
     if (--m_step_tick_left < 0) {
       if (m_position == m_end_position) {
@@ -72,25 +68,22 @@ public:
   }
 
 private:
-  void tick_up() {
+  void tick_updown() {
+    int offset = m_front_fade_scaling_factor > 0 ? 0 : m_front_width;
     for (int idx = 0; idx < m_front_width; idx++) {
+      int index = m_direction * (idx - offset);
       int shift = (m_front_width - idx) * m_front_fade_scaling_factor;
-      int value = m_canvas->Get(m_position + idx);
+      int value = relative_get(index);
       value += shift;
-      tick_set(m_position + idx, value);
+      relative_set(index, value);
     }
   }
 
-  void tick_down() {
-    for (int idx = 0; idx < m_front_width; idx++) {
-      int shift = (m_front_width - idx) * m_front_fade_scaling_factor;
-      int value = m_canvas->Get(m_position - idx);
-      value += shift;
-      tick_set(m_position - idx, value);
-    }
+  int relative_get(int offset) {
+    return m_canvas->Get(m_position + offset);
   }
 
-  void tick_set(int idx, int value) {
+  void relative_set(int offset, int value) {
       if (m_front_fade_scaling_factor > 0 && value > m_max_brightness) {
         value = m_max_brightness;
       }
@@ -98,7 +91,7 @@ private:
         value = m_min_brightness;
       }
 
-    m_canvas->Set(idx, value);
+    m_canvas->Set(m_position + offset, value);
   }
 
 // Configurational variables

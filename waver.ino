@@ -25,7 +25,9 @@ void setup() {
   fx_chain.append(new CFront(&canvas, middle + 1, size - 1, 7, false, 5, 2, 0, 192));
   fx_chain.append(new CFront(&canvas, middle, 0, 7, false, 5, 2, 0, 192));
   fx_chain.append_next_chain();
-  fx_chain.append(new CFade(&canvas, 0, 1));
+  fx_chain.append(new CFront(&canvas, middle + 1, size - 1, 7, false, 5, -2, 0, 0));
+  fx_chain.append(new CFront(&canvas, middle, 0, 7, false, 5, -2, 0, 0));
+//  fx_chain.append(new CFade(&canvas, 0, 1));
 }
 
 void loop() {
