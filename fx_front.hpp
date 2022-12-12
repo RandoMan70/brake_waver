@@ -69,9 +69,8 @@ public:
 
 private:
   void tick_updown() {
-    int offset = m_front_fade_scaling_factor > 0 ? 0 : m_front_width;
     for (int idx = 0; idx < m_front_width; idx++) {
-      int index = m_direction * (idx - offset);
+      int index = m_direction * idx;
       int shift = (m_front_width - idx) * m_front_fade_scaling_factor;
       int value = relative_get(index);
       value += shift;
