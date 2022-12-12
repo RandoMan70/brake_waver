@@ -42,7 +42,6 @@ void setup() {
   fx_chain.append_next_chain();
   fx_chain.append(new CFront(&canvas, middle + 1 - 2, size + 1, 7, false, 5, -2, 0, 0));
   fx_chain.append(new CFront(&canvas, middle + 2, -2, 7, false, 5, -2, 0, 0));
-//  fx_chain.append(new CFade(&canvas, 0, 1));
 }
 
 void loop() {
